@@ -1,0 +1,122 @@
+title 'Tests to confirm erlang works as expected'
+
+plan_origin = ENV['HAB_ORIGIN']
+plan_name = input('plan_name', value: 'erlang')
+
+control 'core-plans-erlang-works' do
+  impact 1.0
+  title 'Ensure erlang works as expected'
+  desc '
+  Verify erlang by ensuring that
+  (1) its installation directory exists 
+  (2) it returns the expected version
+  '
+  
+  plan_installation_directory = command("hab pkg path #{plan_origin}/#{plan_name}")
+  describe plan_installation_directory do
+    its('exit_status') { should eq 0 }
+    its('stdout') { should_not be_empty }
+    its('stderr') { should be_empty }
+  end
+  
+  plan_pkg_version = plan_installation_directory.stdout.split("/")[5]
+  ["erl"].each do |binary_name|
+    command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", binary_name)
+    describe command("#{command_full_path} -eval '{ok, Version} = file:read_file(filename:join([code:root_dir(), \"releases\", erlang:system_info(otp_release), \"OTP_VERSION\"])), io:fwrite(Version), halt().' -noshell") do
+      its('exit_status') { should eq 0 }
+      its('stdout') { should_not be_empty }
+      its('stdout') { should match /#{plan_pkg_version}/ }
+      its('stderr') { should be_empty }
+    end
+  end
+
+  ### SIMPLE TEST EXAMPLE ###
+  # [
+  #   "ct_run",
+  #   "dialyzer",
+  #   "epmd",
+  #   "erl",
+  #   "erlc",
+  #   "escript",
+  #   "run_erl",
+  #   "to_erl",
+  #   "typer",
+  #   ].each do |binary_name|
+  #     command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", binary_name)
+  #     describe command("#{command_full_path} --version") do
+  #       its('exit_status') { should eq 0 }
+  #       its('stdout') { should_not be_empty }
+  #       its('stdout') { should match /#{binary_name} REPLACEME #{plan_pkg_version}/ }
+  #       its('stderr') { should be_empty }
+  #     end
+  #   end
+  
+  ### COMPLEX TEST EXAMPLE ###
+  require 'tempfile'
+  script = <<~END
+      #!/usr/bin/env escript
+      -export([main/1]).
+      main([]) -> io:format("Hello, World!~n").
+  END
+  actual_command_under_test = command("echo 'Ooops I never got set'")
+  Tempfile.open('foo') do |f|
+    f << script
+    command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", "escript")
+    actual_command_under_test = command("#{command_full_path} #{f.path}")
+  end
+  describe actual_command_under_test do 
+    its("stdout") { should match /Hello, World!/ }
+  end
+  hello_script = <<~END
+    #!/usr/bin/env escript
+    -export([main/1]).
+    main([]) -> io:format("Hello, World!~n").
+  END
+
+  full_suite = {
+    "ct_run" => {},
+    "dialyzer" => {},
+    "epmd" => {io: "stderr", exit_pattern: /^[^0]$/},
+    # "erl" => {},
+    "erlc" => {io: "stderr", exit_pattern: /^[^0]$/},
+    "escript" => {
+      io: "stderr", 
+      exit_pattern: /^[^0]$/},
+      command_suffix: "",
+      script: "hello_script",
+    },
+    "run_erl" => {},
+    "to_erl" => {},
+    "typer" => {},
+  }
+  
+  # Use the following to pull out a subset of the above and test progressiveluy
+  subset = full_suite.select { |key, value| key.to_s.match(/^[e].*$/) }
+  
+  # over-ride the defaults below with (command_suffix:, io:, etc)
+  subset.each do |binary_name, value|
+    command_prefix = value[:command_prefix] || "" #"echo '{\"key\":\"value\"}' | "
+    command_suffix = value[:command_suffix] || "-help"
+    command_output_pattern = value[:command_output_pattern] || /[uU]sage:/ #/#{binary_name}/
+    exit_pattern = value[:exit_pattern] || /^0$/ # use /^[^0]$/ for non-zero exit status
+    io = value[:io] || "stdout"
+    command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", binary_name)
+    script = value[:script]
+
+    command_statement = "#{command_prefix} #{command_full_path} #{command_suffix}"
+    actual_command_under_test = command("#{command_statement}")
+    if(script)
+      Tempfile.open('foo') do |f|
+        f << script
+        command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", "escript")
+        actual_command_under_test = command("#{command_statement} #{f.path}")
+      end
+    end
+
+    describe actual_command_under_test do
+      its('exit_status') { should cmp exit_pattern }
+      its(io) { should match command_output_pattern }
+    end
+  end
+
+end
