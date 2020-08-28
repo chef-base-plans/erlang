@@ -28,7 +28,7 @@ control 'core-plans-erlang-works' do
   end
   
   plan_pkg_version = plan_installation_directory.stdout.split("/")[5]
-  full_suite = {
+  {
     "ct_run" => {
       command_output_pattern: /ct_run -dir TestDir1 TestDir2/,
       exit_pattern: /^[0]$/,
@@ -68,36 +68,31 @@ control 'core-plans-erlang-works' do
       command_suffix: "--help",
       exit_pattern: /^[0]$/,
     },
-  }
-  
-  # Use the following to pull out a subset of the above and test progressiveluy
-  subset = full_suite.select { |key, value| key.to_s.match(/^[a-z].*$/) }
-  
-  # over-ride the defaults below with (command_suffix:, io:, etc)
-  subset.each do |binary_name, value|
+  }.each do |binary_name, value|
+    # set default values if each binary_name doesn't define an over-ride
     command_suffix = value[:command_suffix] || "-help"
     command_output_pattern = value[:command_output_pattern] || /[uU]sage:.+#{binary_name}/ 
     exit_pattern = value[:exit_pattern] || /^[^0]$/ # use /^[^0]$/ for non-zero exit status
     io = value[:io] || "stdout"
-    command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", binary_name)
     script = value[:script]
 
+    # set default 'command_under_test' only adding a Tempfile if 'script' is defined
+    command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", binary_name)
     command_statement = "#{command_full_path} #{command_suffix}"
-    actual_command_under_test = command("#{command_statement}")
+    command_under_test = nil
     if(script)
       Tempfile.open('foo') do |f|
         f << script
-        command_full_path = File.join(plan_installation_directory.stdout.strip, "bin", "escript")
-        actual_command_under_test = command("#{command_statement} #{f.path}")
+        command_under_test = command("#{command_statement} #{f.path}")
       end
+    else
+      command_under_test = command("#{command_statement}")
     end
 
-    describe actual_command_under_test do
+    # verify output
+    describe command_under_test do
       its('exit_status') { should cmp exit_pattern }
       its(io) { should match command_output_pattern }
     end
-
-
   end
-
 end
