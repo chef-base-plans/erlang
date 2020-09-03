@@ -7,9 +7,9 @@ control 'core-plans-erlang-exists' do
   impact 1.0
   title 'Ensure erlang exists'
   desc '
-  Verify erlang by ensuring bin/erl 
-  (1) exists and
-  (2) is executable'
+  Verify erlang by ensuring its
+  (1) binaries exist and
+  (2) are executable'
   
   plan_installation_directory = command("hab pkg path #{plan_origin}/#{plan_name}")
   describe plan_installation_directory do
