@@ -78,6 +78,7 @@ control 'core-plans-erlang-works' do
     if(script)
       Tempfile.open('foo') do |f|
         f << script
+        sleep(5) unless File.exists?(f.path)
         command_under_test = command("#{command_statement} #{f.path}")
       end
     else
