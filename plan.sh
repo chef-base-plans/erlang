@@ -1,14 +1,14 @@
 pkg_name=erlang
 pkg_origin=core
-pkg_version=23.3
+pkg_version=23.3.4.9
 pkg_description="A programming language for massively scalable soft real-time systems."
 pkg_upstream_url="http://www.erlang.org/"
 pkg_dirname="otp_src_${pkg_version}"
 pkg_license=('Apache-2.0')
 pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
-pkg_source="http://erlang.org/download/otp_src_${pkg_version}.tar.gz"
+pkg_source="https://github.com/erlang/otp/releases/download/OTP-${pkg_version}/otp_src_${pkg_version}.tar.gz"
 pkg_filename="otp_src_${pkg_version}.tar.gz"
-pkg_shasum=3c888d8f46124e134b75a9ba5d845f079020b7198ed2de64411e183d07e9002a
+pkg_shasum=2a2a6538c25736bda659af647ea2aac10eeeabc26c889e051487507045a24581
 pkg_build_deps=(
   core/coreutils
   core/gcc
